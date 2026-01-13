@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shein Manager Pro</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root {
+            --bg-app: #f0f2f5;
+            --card-surface: #ffffff;
+            --primary: #2563eb;
+            --accent-success: #10b981;
+            --accent-danger: #ef4444;
+        }
+
+        body { 
+            background-color: var(--bg-app); 
+            font-family: 'Inter', sans-serif; 
+            color: #334155;
+            padding-bottom: 80px; /* Espacio para el FAB */
+        }
+
+        /* Navbar Sticky con Blur */
+        .navbar { 
+            background: rgba(255, 255, 255, 0.95); 
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        /* Widget Oscuro Pro */
+        .stats-card {
+            background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.3);
+            margin-bottom: 1.5rem;
+        }
+
+        /* Tarjetas de Pedidos */
+        .order-card {
+            background: var(--card-surface);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        .order-card:active { transform: scale(0.98); } /* Feedback táctil */
+        
+        .status-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+
+        /* Botón Flotante (FAB) */
+        .fab-main {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 64px;
+            height: 64px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 8px 30px rgba(37, 99, 235, 0.4);
+            font-size: 24px;
+            z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.2s;
+        }
+        .fab-main:active { transform: scale(0.90); }
+
+        /* Estilos Inputs Modal */
+        .input-group-text { background-color: #f8fafc; color: #64748b; font-size: 0.85rem; }
+        .form-control:focus { box-shadow: none; border-color: var(--primary); }
+        
+        .bg-money-input { background-color: #f8fafc; font-weight: 600; text-align: right; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar sticky-top px-3 py-2">
+        <div class="d-flex w-100 align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fas fa-cubes text-primary fs-4"></i>
+                <span class="fw-bold text-dark lh-1">Shein<br><small class="text-muted fw-normal" style="font-size:0.7rem">MANAGER PRO</small></span>
+            </div>
+            
+            <div class="flex-grow-1 ms-3" style="max-width: 250px;">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text border-end-0 bg-light"><i class="fas fa-search"></i></span>
+                    <input type="text" id="searchInput" class="form-control border-start-0 bg-light" placeholder="Buscar ID o Guía...">
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-3">
+        
+        <div class="stats-card">
+            <div class="row text-center">
+                <div class="col-6 border-end border-secondary">
+                    <small class="text-white-50 text-uppercase fw-bold" style="font-size: 0.65rem;">Inversión Total</small>
+                    <h3 class="fw-bold m-0 mt-1" id="global-investment">L. 0.00</h3>
+                </div>
+                <div class="col-6">
+                    <small class="text-white-50 text-uppercase fw-bold" style="font-size: 0.65rem;">Ganancia Neta</small>
+                    <h3 class="fw-bold m-0 mt-1 text-success" id="global-profit">L. 0.00</h3>
+                </div>
+            </div>
+        </div>
+
+        <div id="orders-container" class="row g-3">
+            <div class="text-center py-5 text-muted">Cargando datos...</div>
+        </div>
+
+    </div>
+
+    <button class="fab-main" data-bs-toggle="modal" data-bs-target="#newOrderModal">
+        <i class="fas fa-plus"></i>
+    </button>
+
+
+    <div class="modal fade" id="newOrderModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">Registrar Compra</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body pt-4">
+                    <form id="formNewOrder">
+                        <div class="row g-2 mb-3">
+                            <div class="col-12">
+                                <label class="small text-muted fw-bold">FECHA</label>
+                                <input type="date" id="new_date" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-7">
+                                <label class="small text-muted fw-bold">MONTO</label>
+                                <div class="input-group">
+                                    <input type="number" step="0.01" id="new_amount" class="form-control fw-bold" placeholder="0.00" required>
+                                </div>
+                            </div>
+                            <div class="col-5">
+                                <label class="small text-muted fw-bold">MONEDA</label>
+                                <select id="new_currency" class="form-select">
+                                    <option value="USD">USD ($)</option>
+                                    <option value="HNL">HNL (L)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="bg-light p-3 rounded mb-3 border">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <small class="text-muted fw-bold" style="font-size:0.7rem">TASA DE CAMBIO</small>
+                                <span class="text-primary fw-bold" style="font-size:0.75rem; cursor:pointer" onclick="fetchCurrentRate()">
+                                    <i class="fas fa-sync-alt me-1"></i> Actualizar
+                                </span>
+                            </div>
+                            <input type="number" step="0.0001" id="new_rate" class="form-control border-0 bg-transparent p-0 fs-5 fw-bold text-dark" placeholder="0.0000">
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="small text-muted fw-bold">TRACKING INICIAL</label>
+                            <input type="text" id="new_tracking" class="form-control mb-2" placeholder="Ej. 1Z99AA...">
+                            <select id="new_carrier" class="form-select form-select-sm">
+                                <option value="UPS">UPS</option>
+                                <option value="USPS">USPS</option>
+                                <option value="FEDEX">FEDEX</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-3">GUARDAR PEDIDO</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="editOrderModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header border-0 bg-light">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-dark">#<span id="edit_id_display"></span></span>
+                        <span class="text-muted small">Detalles</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-danger border-0" onclick="deleteOrder()" title="Eliminar Pedido">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
+
+                <div class="modal-body p-4">
+                    
+                    <div class="mb-4">
+                        <label class="small fw-bold text-muted mb-2">RASTREO DE PAQUETES</label>
+                        <div id="modal_trackings_list" class="d-flex flex-wrap gap-2 mb-2"></div>
+                        <form id="formAddTracking" class="input-group input-group-sm">
+                            <input type="hidden" id="edit_order_id_track">
+                            <input type="text" id="add_tracking_num" class="form-control" placeholder="Agregar Guía..." required>
+                            <button class="btn btn-dark" type="submit"><i class="fas fa-plus"></i></button>
+                        </form>
+                    </div>
+
+                    <hr class="opacity-25">
+
+                    <form id="formFinancials">
+                        <input type="hidden" id="edit_order_id_fin">
+                        <input type="hidden" id="hidden_exchange_rate"> <label class="small fw-bold text-muted mb-3">CONTROL FINANCIERO</label>
+
+                        <div class="input-group mb-2">
+                            <span class="input-group-text bg-white border-end-0">Compra $</span>
+                            <input type="number" step="0.01" id="edit_original_amount" class="form-control bg-money-input border-start-0 text-dark" placeholder="0.00">
+                        </div>
+                        <div class="text-end mb-2">
+                            <small class="text-muted fst-italic" style="font-size: 0.75rem;">
+                                = <span id="display_shein_hnl">L. 0.00</span> (según tasa del día)
+                            </small>
+                        </div>
+
+                        <div class="input-group mb-3">
+                            <span class="input-group-text bg-white border-end-0">Flete L.</span>
+                            <input type="number" step="0.01" id="edit_freight" class="form-control bg-money-input border-start-0 text-warning-emphasis" placeholder="0.00">
+                        </div>
+
+                        <div class="input-group mb-4">
+                            <span class="input-group-text bg-white border-end-0 text-success fw-bold">Venta L.</span>
+                            <input type="number" step="0.01" id="edit_price" class="form-control bg-money-input border-start-0 text-success" placeholder="0.00">
+                        </div>
+
+                        <div class="p-3 rounded-3 text-center transition-all" id="profit_widget" style="background-color: #1e293b; color: white;">
+                            <small class="opacity-75 text-uppercase" style="font-size: 0.65rem; letter-spacing: 1px;">Margen de Ganancia</small>
+                            <h2 class="fw-bold m-0 my-1" id="display_profit">L. 0.00</h2>
+                            <small id="profit_percentage" class="opacity-75" style="font-size: 0.8rem;">---</small>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 mt-3 py-2 fw-bold">GUARDAR CAMBIOS</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        const modalNew = new bootstrap.Modal(document.getElementById('newOrderModal'));
+        const modalEdit = new bootstrap.Modal(document.getElementById('editOrderModal'));
+        let allOrders = []; // Cache local para búsqueda rápida
+
+        const formatHNL = (num) => new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL' }).format(num);
+
+        // --- CARGAR DATOS ---
+        async function loadOrders() {
+            const container = document.getElementById('orders-container');
+            try {
+                const res = await fetch(`${API_URL}/orders`);
+                allOrders = await res.json();
+                renderOrders(allOrders);
+                updateDashboardStats();
+            } catch (error) {
+                console.error(error);
+                container.innerHTML = '<div class="text-danger text-center mt-5">Error de conexión con el servidor</div>';
+            }
+        }
+
+        // --- RENDERIZAR TARJETAS ---
+        function renderOrders(orders) {
+            const container = document.getElementById('orders-container');
+            container.innerHTML = '';
+
+            if (orders.length === 0) {
+                container.innerHTML = '<div class="text-center py-5 opacity-50"><i class="fas fa-box-open fa-3x mb-3"></i><p>No hay pedidos registrados</p></div>';
+                return;
+            }
+
+            orders.forEach(order => {
+                // Matemáticas
+                const sheinHNL = order.original_amount * order.exchange_rate;
+                const flete = parseFloat(order.freight_cost_hnl || 0);
+                const venta = parseFloat(order.selling_price_hnl || 0);
+                const inversion = sheinHNL + flete;
+                const ganancia = venta - inversion;
+
+                // Estado visual
+                let statusBadge = '<span class="status-badge bg-secondary text-white">Pendiente</span>';
+                let borderColor = 'border-light';
+                
+                if (venta > 0) {
+                    if (ganancia >= 0) {
+                        statusBadge = '<span class="status-badge bg-success text-white">Ganancia</span>';
+                        borderColor = 'border-success'; // Borde verde sutil
+                    } else {
+                        statusBadge = '<span class="status-badge bg-danger text-white">Pérdida</span>';
+                        borderColor = 'border-danger';
+                    }
+                }
+
+                // HTML Tarjeta
+                const col = document.createElement('div');
+                col.className = 'col-12 col-md-6 col-lg-4';
+                col.innerHTML = `
+                    <div class="order-card p-3 h-100 shadow-sm" style="border-left: 4px solid ${venta > 0 ? (ganancia>=0?'#10b981':'#ef4444') : '#94a3b8'}" onclick='openEditModal(${JSON.stringify(order)})'>
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <span class="fw-bold text-dark">#${order.id}</span>
+                                <small class="text-muted d-block" style="font-size:0.75rem">${new Date(order.purchase_date).toLocaleDateString()}</small>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        
+                        <div class="row g-0 mb-2">
+                            <div class="col-6">
+                                <small class="text-uppercase text-muted" style="font-size:0.65rem; fw-bold">Inversión</small>
+                                <div class="fw-bold text-dark">${formatHNL(inversion)}</div>
+                            </div>
+                            <div class="col-6 text-end">
+                                <small class="text-uppercase text-muted" style="font-size:0.65rem; fw-bold">Venta</small>
+                                <div class="fw-bold ${venta>0 ? 'text-primary':'text-muted'}">${venta > 0 ? formatHNL(venta) : '--'}</div>
+                            </div>
+                        </div>
+
+                        ${venta > 0 ? `
+                        <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center">
+                            <small class="text-muted">Neto:</small>
+                            <span class="fw-bold ${ganancia>=0 ? 'text-success':'text-danger'}">${formatHNL(ganancia)}</span>
+                        </div>
+                        ` : ''}
+
+                        <div class="mt-2">
+                            ${order.trackings && order.trackings[0].n_guia 
+                                ? order.trackings.map(t => `<span class="badge bg-light text-secondary border fw-normal me-1 mb-1"><i class="fas fa-barcode"></i> ...${t.n_guia.slice(-4)}</span>`).join('') 
+                                : ''}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(col);
+            });
+        }
+
+        // --- DASHBOARD SUPERIOR ---
+        function updateDashboardStats() {
+            let totalInv = 0;
+            let totalProfit = 0;
+            allOrders.forEach(o => {
+                const inv = (o.original_amount * o.exchange_rate) + parseFloat(o.freight_cost_hnl || 0);
+                const venta = parseFloat(o.selling_price_hnl || 0);
+                totalInv += inv;
+                if(venta > 0) totalProfit += (venta - inv);
+            });
+            document.getElementById('global-investment').innerText = formatHNL(totalInv);
+            const pEl = document.getElementById('global-profit');
+            pEl.innerText = formatHNL(totalProfit);
+            pEl.className = totalProfit >= 0 ? 'fw-bold m-0 mt-1 text-success' : 'fw-bold m-0 mt-1 text-danger';
+        }
+
+        // --- BÚSQUEDA ---
+        document.getElementById('searchInput').addEventListener('keyup', (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtered = allOrders.filter(o => {
+                const trackStr = o.trackings ? o.trackings.map(t=>t.n_guia).join(' ') : '';
+                return o.id.toString().includes(term) || trackStr.toLowerCase().includes(term);
+            });
+            renderOrders(filtered);
+        });
+
+        // --- NUEVO PEDIDO ---
+        document.getElementById('newOrderModal').addEventListener('show.bs.modal', () => {
+             if(!document.getElementById('new_rate').value) fetchCurrentRate();
+        });
+
+        async function fetchCurrentRate() {
+            const el = document.getElementById('new_rate');
+            el.placeholder = "...";
+            try {
+                const r = await fetch(`${API_URL}/rate`);
+                const d = await r.json();
+                el.value = d.rate.toFixed(4);
+            } catch { el.value = "26.6000"; }
+        }
+
+       // --- GUARDAR NUEVO PEDIDO CON SWEETALERT2 ---
+        document.getElementById('formNewOrder').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // 1. Mostrar estado de "Cargando..." mientras guarda
+            // (Esto evita que el usuario toque el botón muchas veces)
+            Swal.fire({
+                title: 'Guardando...',
+                text: 'Registrando tu compra en Shein',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            const track = document.getElementById('new_tracking').value;
+            const data = {
+                purchase_date: document.getElementById('new_date').value,
+                original_amount: document.getElementById('new_amount').value,
+                currency: document.getElementById('new_currency').value,
+                custom_rate: document.getElementById('new_rate').value,
+                trackings: track ? [{ tracking_number: track, carrier: document.getElementById('new_carrier').value }] : []
+            };
+
+            try {
+                // 2. Enviar al servidor
+                await fetch(`${API_URL}/orders`, { 
+                    method: 'POST', 
+                    headers: {'Content-Type':'application/json'}, 
+                    body: JSON.stringify(data)
+                });
+
+                // 3. Cerrar Modal y Mostrar Éxito
+                modalNew.hide();
+                e.target.reset();
+                loadOrders();
+
+                // Animación de Éxito
+                Swal.fire({
+                    title: '¡Guardado!',
+                    text: 'El pedido ha sido registrado correctamente.',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    customClass: {
+                        popup: 'rounded-4 shadow-lg'
+                    }
+                });
+
+            } catch (error) {
+                // Si algo falla
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'No se pudo guardar el pedido. Revisa tu conexión.'
+                });
+            }
+        });
+
+        // --- EDICIÓN AVANZADA ---
+        window.openEditModal = (order) => {
+            // IDs Ocultos
+            document.getElementById('edit_id_display').innerText = order.id;
+            document.getElementById('edit_order_id_track').value = order.id;
+            document.getElementById('edit_order_id_fin').value = order.id;
+            document.getElementById('hidden_exchange_rate').value = order.exchange_rate; // Guardar tasa original para recálculo
+
+            // Trackings
+            const tDiv = document.getElementById('modal_trackings_list');
+            if(order.trackings && order.trackings[0].n_guia) {
+                tDiv.innerHTML = order.trackings.map(t => 
+                    `<span class="badge bg-white text-dark border p-2"><i class="fas fa-shipping-fast text-primary"></i> ${t.carrier} ${t.n_guia}</span>`
+                ).join('');
+            } else { tDiv.innerHTML = '<span class="text-muted small">Sin rastreos</span>'; }
+
+            // Llenar Inputs Editables
+            document.getElementById('edit_original_amount').value = order.original_amount; // AHORA EDITABLE
+            document.getElementById('edit_freight').value = order.freight_cost_hnl || '';
+            document.getElementById('edit_price').value = order.selling_price_hnl || '';
+
+            // Iniciar Calculadora
+            calculateEditTotals();
+            
+            // Listeners para recálculo en vivo
+            ['edit_original_amount', 'edit_freight', 'edit_price'].forEach(id => {
+                document.getElementById(id).oninput = calculateEditTotals;
+            });
+
+            modalEdit.show();
+        };
+
+        function calculateEditTotals() {
+            const tasa = parseFloat(document.getElementById('hidden_exchange_rate').value);
+            const amountUSD = parseFloat(document.getElementById('edit_original_amount').value) || 0;
+            const flete = parseFloat(document.getElementById('edit_freight').value) || 0;
+            const venta = parseFloat(document.getElementById('edit_price').value) || 0;
+
+            // 1. Calcular Costo Shein en HNL
+            const sheinHNL = amountUSD * tasa;
+            document.getElementById('display_shein_hnl').innerText = formatHNL(sheinHNL);
+
+            // 2. Inversión Total
+            const totalInv = sheinHNL + flete;
+            const ganancia = venta - totalInv;
+
+            // 3. UI Ganancia
+            const disp = document.getElementById('display_profit');
+            const widget = document.getElementById('profit_widget');
+            
+            disp.innerText = formatHNL(ganancia);
+
+            if(venta > 0) {
+                if(ganancia >= 0) {
+                    widget.style.backgroundColor = '#064e3b'; // Verde Oscuro
+                    disp.style.color = '#34d399'; // Verde Claro
+                } else {
+                    widget.style.backgroundColor = '#450a0a'; // Rojo Oscuro
+                    disp.style.color = '#f87171'; // Rojo Claro
+                }
+                // Porcentaje ROI
+                const roi = ((ganancia / totalInv) * 100).toFixed(1);
+                document.getElementById('profit_percentage').innerText = `${roi}% retorno`;
+            } else {
+                widget.style.backgroundColor = '#1e293b'; // Default
+                disp.style.color = 'white';
+                document.getElementById('profit_percentage').innerText = 'Ingresa precio venta';
+            }
+        }
+
+        // --- ELIMINAR PEDIDO ---
+        // --- ELIMINAR PEDIDO CON SWEETALERT2 ---
+        window.deleteOrder = async () => {
+            // Cerramos el modal de edición primero para que se vea bien la alerta
+            // (Opcional: puedes dejarlo abierto si prefieres que la alerta salga encima)
+            // modalEdit.hide(); 
+
+            const result = await Swal.fire({
+                title: '¿Eliminar pedido?',
+                text: "Esta acción no se puede deshacer.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',   // Rojo profesional
+                cancelButtonColor: '#3085d6', // Azul
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                background: '#fff',
+                customClass: {
+                    popup: 'rounded-4 shadow-lg' // Bordes redondeados modernos
+                }
+            });
+
+            if (result.isConfirmed) {
+                const id = document.getElementById('edit_order_id_fin').value;
+                
+                try {
+                    await fetch(`${API_URL}/orders/${id}`, { method: 'DELETE' });
+                    
+                    // Cerramos el modal principal ahora sí
+                    modalEdit.hide();
+                    
+                    // Mensaje de éxito
+                    await Swal.fire({
+                        title: '¡Eliminado!',
+                        text: 'El pedido ha sido borrado.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    
+                    loadOrders(); // Recargar la lista
+                } catch (error) {
+                    Swal.fire('Error', 'No se pudo eliminar el pedido', 'error');
+                }
+            }
+        };
+
+        // Guardar cambios del form financiero
+        document.getElementById('formFinancials').addEventListener('submit', async(e)=>{
+            e.preventDefault();
+            const id = document.getElementById('edit_order_id_fin').value;
+            await fetch(`${API_URL}/orders/${id}/financials`, {
+                method: 'PUT', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ 
+                    original_amount: document.getElementById('edit_original_amount').value,
+                    freight_cost_hnl: document.getElementById('edit_freight').value,
+                    selling_price_hnl: document.getElementById('edit_price').value
+                })
+            });
+            modalEdit.hide(); loadOrders();
+        });
+
+        // Agregar Tracking
+        document.getElementById('formAddTracking').addEventListener('submit', async(e)=>{
+            e.preventDefault();
+            const id = document.getElementById('edit_order_id_track').value;
+            await fetch(`${API_URL}/orders/${id}/tracking`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ tracking_number: document.getElementById('add_tracking_num').value, carrier:'UPS'})
+            });
+            document.getElementById('add_tracking_num').value=''; modalEdit.hide(); loadOrders();
+        });
+
+        // Iniciar
+        loadOrders();
+    </script>
+</body>
+</html>
