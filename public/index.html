@@ -573,19 +573,60 @@
             }
         };
 
-        // Guardar cambios del form financiero
-        document.getElementById('formFinancials').addEventListener('submit', async(e)=>{
+        // --- GUARDAR CAMBIOS (EDICIÓN) CON ANIMACIÓN ---
+        document.getElementById('formFinancials').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const id = document.getElementById('edit_order_id_fin').value;
-            await fetch(`${API_URL}/orders/${id}/financials`, {
-                method: 'PUT', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ 
-                    original_amount: document.getElementById('edit_original_amount').value,
-                    freight_cost_hnl: document.getElementById('edit_freight').value,
-                    selling_price_hnl: document.getElementById('edit_price').value
-                })
+            
+            // 1. Mostrar animación de carga
+            Swal.fire({
+                title: 'Guardando cambios...',
+                text: 'Actualizando la información financiera',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
             });
-            modalEdit.hide(); loadOrders();
+
+            const id = document.getElementById('edit_order_id_fin').value;
+
+            try {
+                // 2. Enviar datos al servidor
+                await fetch(`${API_URL}/orders/${id}/financials`, {
+                    method: 'PUT', 
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ 
+                        original_amount: document.getElementById('edit_original_amount').value,
+                        freight_cost_hnl: document.getElementById('edit_freight').value,
+                        selling_price_hnl: document.getElementById('edit_price').value
+                    })
+                });
+
+                // 3. Cerrar el modal de edición
+                modalEdit.hide();
+
+                // 4. Mostrar animación de éxito
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Actualizado!',
+                    text: 'Los cambios se guardaron correctamente.',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    customClass: {
+                        popup: 'rounded-4 shadow-lg'
+                    }
+                });
+
+                // 5. Recargar la lista principal
+                loadOrders();
+
+            } catch (error) {
+                console.error(error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'No se pudieron guardar los cambios. Intenta de nuevo.'
+                });
+            }
         });
 
         // Agregar Tracking
